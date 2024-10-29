@@ -1,4 +1,4 @@
-package main
+package aof
 
 import (
 	"bufio"
@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/ashish-kamra/redis-clone/internal/protocol"
 )
 
 type Aof struct {
@@ -75,7 +77,7 @@ func (aof *Aof) Close() error {
 	return aof.file.Close()
 }
 
-func (aof *Aof) Write(obj RESPObject) error {
+func (aof *Aof) Write(obj protocol.RESPObject) error {
 	aof.mu.Lock()
 	defer aof.mu.Unlock()
 
@@ -94,7 +96,7 @@ func (aof *Aof) Write(obj RESPObject) error {
 	return nil
 }
 
-func (aof *Aof) Read(fn func(obj RESPObject)) error {
+func (aof *Aof) Read(fn func(obj protocol.RESPObject)) error {
 	aof.mu.RLock()
 	defer aof.mu.RUnlock()
 
@@ -102,7 +104,7 @@ func (aof *Aof) Read(fn func(obj RESPObject)) error {
 		return fmt.Errorf("failed to seek to start of file: %w", err)
 	}
 
-	reader := NewReader(aof.file)
+	reader := protocol.NewReader(aof.file)
 	for {
 		value, err := reader.Deserialize()
 		if err != nil {

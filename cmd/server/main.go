@@ -7,6 +7,10 @@ import (
 	"log"
 	"net"
 	"strings"
+
+	"github.com/ashish-kamra/redis-clone/internal/aof"
+	"github.com/ashish-kamra/redis-clone/internal/handler"
+	"github.com/ashish-kamra/redis-clone/internal/protocol"
 )
 
 var port = flag.String("port", "6379", "Listening port address")
@@ -20,7 +24,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	aof, err := NewAof("redis.aof", false)
+	aof, err := aof.NewAof("redis.aof", false)
 	if err != nil {
 		log.Fatalf("Failed to open/create AOF: %v", err)
 	}
@@ -38,10 +42,10 @@ func main() {
 	}
 }
 
-func handleConnection(conn net.Conn, aof *Aof) {
+func handleConnection(conn net.Conn, aof *aof.Aof) {
 	defer conn.Close()
-	reader := NewReader(conn)
-	writer := NewWriter(conn)
+	reader := protocol.NewReader(conn)
+	writer := protocol.NewWriter(conn)
 
 	for {
 		respObject, err := reader.Deserialize()
@@ -62,22 +66,22 @@ func handleConnection(conn net.Conn, aof *Aof) {
 	}
 }
 
-func processCommand(respObject RESPObject, aof *Aof) RESPObject {
-	if respObject.Type != Array {
-		return RESPObject{Type: Error, Value: "Invalid request, expected array"}
+func processCommand(respObject protocol.RESPObject, aof *aof.Aof) protocol.RESPObject {
+	if respObject.Type != protocol.Array {
+		return protocol.RESPObject{Type: protocol.Error, Value: "Invalid request, expected array"}
 	}
 
-	respObjectVal := respObject.Value.([]RESPObject)
+	respObjectVal := respObject.Value.([]protocol.RESPObject)
 	if len(respObjectVal) == 0 {
-		return RESPObject{Type: Error, Value: "Invalid request, expected array length > 0"}
+		return protocol.RESPObject{Type: protocol.Error, Value: "Invalid request, expected array length > 0"}
 	}
 
 	command := strings.ToUpper(respObjectVal[0].Value.(string))
 	args := respObjectVal[1:]
 
-	handler, ok := Handlers[command]
+	handler, ok := handler.Handlers[command]
 	if !ok {
-		return RESPObject{Type: Error, Value: fmt.Sprintf("Invalid command: %s", command)}
+		return protocol.RESPObject{Type: protocol.Error, Value: fmt.Sprintf("Invalid command: %s", command)}
 	}
 
 	if command == "SET" || command == "HSET" {
@@ -89,11 +93,11 @@ func processCommand(respObject RESPObject, aof *Aof) RESPObject {
 	return handler(args)
 }
 
-func rebuildCacheFromAOF(aof *Aof) {
-	err := aof.Read(func(respObject RESPObject) {
-		command := strings.ToUpper(respObject.Value.([]RESPObject)[0].Value.(string))
-		args := respObject.Value.([]RESPObject)[1:]
-		handler, ok := Handlers[command]
+func rebuildCacheFromAOF(aof *aof.Aof) {
+	err := aof.Read(func(respObject protocol.RESPObject) {
+		command := strings.ToUpper(respObject.Value.([]protocol.RESPObject)[0].Value.(string))
+		args := respObject.Value.([]protocol.RESPObject)[1:]
+		handler, ok := handler.Handlers[command]
 		if !ok {
 			log.Printf("Unknown command in AOF: %s", command)
 			return
