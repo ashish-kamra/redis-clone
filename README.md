@@ -14,8 +14,8 @@ A lightweight Redis-compatible server implementation in Go, supporting core Redi
     - `HGET` - Retrieve hash map values
     - `KEYS` - Pattern-based key search
 - Persistence through Append-Only File (AOF) and automatic AOF recovery on server restart
-- Key expiration support
-- Supports concurrent connections using goroutines and Thread-safe operations using sync.Map
+- Supports Key expiration
+- Supports concurrent connections while ensuring thread-safe operations
 
 ## Getting Started
 
